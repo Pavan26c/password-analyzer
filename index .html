@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Password Strength Analyzer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #ffffff;
+      --bg-secondary: #f5f5f3;
+      --bg-tertiary: #eeede8;
+      --text-primary: #1a1a18;
+      --text-secondary: #5f5e5a;
+      --text-tertiary: #8c8b87;
+      --border: rgba(0,0,0,0.12);
+      --border-md: rgba(0,0,0,0.22);
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --font-sans: 'Inter', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1c1a;
+        --bg-secondary: #252523;
+        --bg-tertiary: #2e2e2b;
+        --text-primary: #f0efe9;
+        --text-secondary: #a8a7a2;
+        --text-tertiary: #6e6d69;
+        --border: rgba(255,255,255,0.1);
+        --border-md: rgba(255,255,255,0.18);
+      }
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 2rem 1rem 4rem;
+    }
+
+    .card {
+      background: var(--bg);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      width: 100%;
+      max-width: 580px;
+      margin-top: 1rem;
+    }
+
+    .header { margin-bottom: 1.75rem; }
+    .header h1 { font-size: 22px; font-weight: 500; color: var(--text-primary); margin-bottom: 4px; }
+    .header p { font-size: 14px; color: var(--text-secondary); }
+
+    .input-row { display: flex; gap: 8px; margin-bottom: 1rem; }
+    .pw-input {
+      flex: 1;
+      font-family: var(--font-mono);
+      font-size: 15px;
+      padding: 0 12px;
+      height: 40px;
+      border-radius: var(--radius-md);
+      border: 0.5px solid var(--border-md);
+      background: var(--bg);
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.15s;
+      letter-spacing: 0.02em;
+    }
+    .pw-input:focus { border-color: #378ADD; box-shadow: 0 0 0 3px rgba(55,138,221,0.15); }
+    .pw-input::placeholder { color: var(--text-tertiary); font-family: var(--font-sans); letter-spacing: 0; }
+
+    .toggle-btn {
+      padding: 0 16px;
+      height: 40px;
+      font-size: 13px;
+      cursor: pointer;
+      border: 0.5px solid var(--border-md);
+      border-radius: var(--radius-md);
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .toggle-btn:hover { background: var(--bg); color: var(--text-primary); border-color: #378ADD; }
+
+    .meter-bar {
+      height: 8px;
+      border-radius: 4px;
+      background: var(--bg-secondary);
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .meter-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.35s ease, background 0.35s ease;
+      width: 0%;
+    }
+    .score-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+    .score-label { font-size: 15px; font-weight: 500; }
+    .crack-time { font-size: 12px; color: var(--text-tertiary); }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 10px;
+    }
+
+    .checks-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 1.5rem;
+    }
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      border: 0.5px solid var(--border);
+      background: var(--bg);
+      font-size: 13px;
+      color: var(--text-secondary);
+      transition: all 0.2s;
+    }
+    .check-item.pass {
+      border-color: #0F6E56;
+      background: #E1F5EE;
+      color: #085041;
+    }
+    @media (prefers-color-scheme: dark) {
+      .check-item.pass { background: #04342C; color: #9FE1CB; border-color: #0F6E56; }
+    }
+    .check-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--border-md);
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .check-item.pass .check-dot { background: #1D9E75; }
+
+    .divider { border: none; border-top: 0.5px solid var(--border); margin: 1.25rem 0; }
+
+    .suggestions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 1.25rem; }
+    .suggestion-pill {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      border: 0.5px solid var(--border);
+      background: var(--bg-secondary);
+      font-size: 13px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      cursor: pointer;
+      transition: all 0.18s;
+      word-break: break-all;
+      gap: 12px;
+    }
+    .suggestion-pill:hover { border-color: var(--border-md); background: var(--bg); }
+    .copy-hint { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-sans); flex-shrink: 0; }
+    .copied-flash { font-size: 11px; color: #1D9E75; font-family: var(--font-sans); flex-shrink: 0; }
+
+    .entropy-section { margin-bottom: 1.5rem; }
+    .entropy-bar-wrap { display: flex; align-items: center; gap: 10px; }
+    .entropy-track {
+      flex: 1; height: 6px; border-radius: 3px;
+      background: var(--bg-secondary); overflow: hidden;
+    }
+    .entropy-fill {
+      height: 100%; border-radius: 3px;
+      background: #378ADD;
+      transition: width 0.35s ease;
+      width: 0%;
+    }
+    .entropy-val { font-size: 12px; color: var(--text-secondary); min-width: 52px; text-align: right; }
+
+    .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .clear-btn {
+      font-size: 12px; color: var(--text-tertiary);
+      cursor: pointer; border: none; background: none; padding: 0;
+    }
+    .clear-btn:hover { color: var(--text-primary); }
+
+    .reuse-warn {
+      font-size: 12px; color: #993C1D;
+      padding: 8px 12px;
+      border-radius: var(--radius-md);
+      background: #FAECE7;
+      border: 0.5px solid #F0997B;
+      margin-bottom: 10px;
+    }
+    @media (prefers-color-scheme: dark) {
+      .reuse-warn { background: #4A1B0C; color: #F5C4B3; border-color: #993C1D; }
+    }
+
+    .history-list { display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; }
+    .history-item {
+      display: flex; align-items: center;
+      padding: 8px 12px;
+      border-radius: var(--radius-md);
+      background: var(--bg-secondary);
+      font-size: 13px;
+      gap: 10px;
+    }
+    .history-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .history-pw { font-family: var(--font-mono); color: var(--text-secondary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .history-score { font-size: 12px; color: var(--text-tertiary); white-space: nowrap; }
+    .empty-hint { font-size: 13px; color: var(--text-tertiary); text-align: center; padding: 16px 0; }
+
+    .footer {
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin-top: 1.5rem;
+    }
+
+    @media (max-width: 480px) {
+      .checks-grid { grid-template-columns: 1fr; }
+      .card { padding: 1.25rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="header">
+    <h1>Password strength analyzer</h1>
+    <p>Check strength, entropy, and get safer alternatives</p>
+  </div>
+
+  <div class="input-row">
+    <input class="pw-input" type="password" id="pwInput" placeholder="Enter a password…" autocomplete="new-password" spellcheck="false" />
+    <button class="toggle-btn" id="toggleVis">Show</button>
+  </div>
+
+  <div class="meter-bar"><div class="meter-fill" id="meterFill"></div></div>
+  <div class="score-row">
+    <span class="score-label" id="scoreLabel" style="color: var(--text-tertiary);">—</span>
+    <span class="crack-time" id="crackTime"></span>
+  </div>
+
+  <p class="section-label">Security checks</p>
+  <div class="checks-grid" id="checksGrid"></div>
+
+  <hr class="divider" />
+
+  <div class="entropy-section">
+    <p class="section-label">Entropy</p>
+    <div class="entropy-bar-wrap">
+      <div class="entropy-track"><div class="entropy-fill" id="entropyFill"></div></div>
+      <span class="entropy-val" id="entropyVal">0 bits</span>
+    </div>
+  </div>
+
+  <hr class="divider" />
+
+  <p class="section-label" id="suggestLabel" style="display:none">Stronger alternatives — click to copy</p>
+  <div class="suggestions" id="suggestions"></div>
+
+  <hr class="divider" />
+
+  <div>
+    <div class="history-header">
+      <p class="section-label" style="margin:0">Previously checked</p>
+      <button class="clear-btn" id="clearBtn">Clear</button>
+    </div>
+    <div id="reuseWarn" class="reuse-warn" style="display:none">⚠ This password was checked before — consider a fresh one.</div>
+    <div class="history-list" id="historyList"><p class="empty-hint">No history yet</p></div>
+  </div>
+
+  <p class="footer">All analysis happens locally in your browser. Nothing is sent anywhere.</p>
+</div>
+
+<script>
+  const input       = document.getElementById('pwInput');
+  const toggleBtn   = document.getElementById('toggleVis');
+  const meterFill   = document.getElementById('meterFill');
+  const scoreLabel  = document.getElementById('scoreLabel');
+  const crackTime   = document.getElementById('crackTime');
+  const checksGrid  = document.getElementById('checksGrid');
+  const suggestDiv  = document.getElementById('suggestions');
+  const suggestLabel= document.getElementById('suggestLabel');
+  const entropyFill = document.getElementById('entropyFill');
+  const entropyVal  = document.getElementById('entropyVal');
+  const historyList = document.getElementById('historyList');
+  const reuseWarn   = document.getElementById('reuseWarn');
+  const clearBtn    = document.getElementById('clearBtn');
+
+  let visible = false;
+  let history = [];
+  let debounceTimer;
+  let lastCommitted = '';
+
+  const CHECKS = [
+    { label: '8+ characters',          fn: p => p.length >= 8 },
+    { label: '16+ characters',         fn: p => p.length >= 16 },
+    { label: 'Uppercase letter',       fn: p => /[A-Z]/.test(p) },
+    { label: 'Lowercase letter',       fn: p => /[a-z]/.test(p) },
+    { label: 'Number',                 fn: p => /\d/.test(p) },
+    { label: 'Special character',      fn: p => /[^A-Za-z0-9]/.test(p) },
+    { label: 'No repeated chars (3+)', fn: p => !/(.)\1\1/.test(p) },
+    { label: 'No keyboard patterns',   fn: p => !/(qwerty|asdf|zxcv|1234|abcd|pass|word)/i.test(p) },
+  ];
+
+  const TIERS = {
+    empty:    { bar: 'transparent', text: 'var(--text-tertiary)', label: '—' },
+    critical: { bar: '#E24B4A',     text: '#A32D2D',              label: 'Very weak' },
+    weak:     { bar: '#EF9F27',     text: '#854F0B',              label: 'Weak' },
+    fair:     { bar: '#639922',     text: '#3B6D11',              label: 'Fair' },
+    strong:   { bar: '#1D9E75',     text: '#085041',              label: 'Strong' },
+    vstrong:  { bar: '#1D9E75',     text: '#085041',              label: 'Very strong' },
+  };
+
+  function calcEntropy(p) {
+    let cs = 0;
+    if (/[a-z]/.test(p)) cs += 26;
+    if (/[A-Z]/.test(p)) cs += 26;
+    if (/\d/.test(p))    cs += 10;
+    if (/[^A-Za-z0-9]/.test(p)) cs += 32;
+    return p.length * Math.log2(cs || 1);
+  }
+
+  function crackEstimate(p) {
+    const combos = Math.pow(2, calcEntropy(p));
+    const secs   = combos / 1e10;
+    if (secs < 1)        return 'instant';
+    if (secs < 60)       return Math.round(secs) + ' seconds';
+    if (secs < 3600)     return Math.round(secs / 60) + ' minutes';
+    if (secs < 86400)    return Math.round(secs / 3600) + ' hours';
+    if (secs < 2592000)  return Math.round(secs / 86400) + ' days';
+    if (secs < 31536000) return Math.round(secs / 2592000) + ' months';
+    if (secs < 3.15e10)  return Math.round(secs / 31536000) + ' years';
+    return 'centuries';
+  }
+
+  function scorePassword(p) {
+    if (!p) return { tier: 'empty', pct: 0 };
+    let score = 0;
+    if (p.length >= 8)  score += 1;
+    if (p.length >= 12) score += 1;
+    if (p.length >= 16) score += 1;
+    if (/[A-Z]/.test(p)) score += 1;
+    if (/[a-z]/.test(p)) score += 1;
+    if (/\d/.test(p))    score += 1;
+    if (/[^A-Za-z0-9]/.test(p)) score += 1;
+    if (!/(.)\1\1/.test(p)) score += 0.5;
+    if (!/(qwerty|asdf|1234|pass|word)/i.test(p)) score += 0.5;
+    const pct = Math.min(100, Math.round((score / 8) * 100));
+    let tier;
+    if (pct < 20) tier = 'critical';
+    else if (pct < 45) tier = 'weak';
+    else if (pct < 65) tier = 'fair';
+    else if (pct < 85) tier = 'strong';
+    else tier = 'vstrong';
+    return { tier, pct };
+  }
+
+  function renderChecks(p) {
+    checksGrid.innerHTML = '';
+    CHECKS.forEach(c => {
+      const div = document.createElement('div');
+      div.className = 'check-item' + (p && c.fn(p) ? ' pass' : '');
+      div.innerHTML = `<div class="check-dot"></div><span>${c.label}</span>`;
+      checksGrid.appendChild(div);
+    });
+  }
+
+  const SYMS = '!@#$%^&*_-+=?';
+  function randChar(s) { return s[Math.floor(Math.random() * s.length)]; }
+  function genPassword() {
+    const len  = 16 + Math.floor(Math.random() * 4);
+    const pool = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789' + SYMS;
+    let pw = randChar('abcdefghijkmnpqrstuvwxyz')
+           + randChar('ABCDEFGHJKLMNPQRSTUVWXYZ')
+           + randChar('23456789')
+           + randChar(SYMS);
+    for (let i = pw.length; i < len; i++) pw += randChar(pool);
+    return pw.split('').sort(() => Math.random() - 0.5).join('');
+  }
+
+  function renderSuggestions(pw) {
+    suggestDiv.innerHTML = '';
+    if (!pw) { suggestLabel.style.display = 'none'; return; }
+    suggestLabel.style.display = 'block';
+    for (let i = 0; i < 3; i++) {
+      const s    = genPassword();
+      const pill = document.createElement('div');
+      pill.className = 'suggestion-pill';
+      pill.innerHTML = `<span>${s}</span><span class="copy-hint">Copy</span>`;
+      pill.addEventListener('click', () => {
+        navigator.clipboard.writeText(s).catch(() => {});
+        const hint = pill.querySelector('span:last-child');
+        hint.textContent = 'Copied!';
+        hint.className = 'copied-flash';
+        setTimeout(() => { hint.textContent = 'Copy'; hint.className = 'copy-hint'; }, 1500);
+      });
+      suggestDiv.appendChild(pill);
+    }
+  }
+
+  function maskPw(pw) {
+    if (pw.length <= 4) return '*'.repeat(pw.length);
+    return pw.slice(0, 2) + '*'.repeat(pw.length - 4) + pw.slice(-2);
+  }
+
+  const tierDotColor = { critical:'#E24B4A', weak:'#EF9F27', fair:'#639922', strong:'#1D9E75', vstrong:'#1D9E75' };
+
+  function renderHistory() {
+    if (!history.length) { historyList.innerHTML = '<p class="empty-hint">No history yet</p>'; return; }
+    historyList.innerHTML = '';
+    [...history].reverse().forEach(item => {
+      const d = document.createElement('div');
+      d.className = 'history-item';
+      d.innerHTML = `<div class="history-dot" style="background:${tierDotColor[item.tier] || '#888'}"></div><span class="history-pw">${maskPw(item.pw)}</span><span class="history-score">${TIERS[item.tier].label}</span>`;
+      historyList.appendChild(d);
+    });
+  }
+
+  input.addEventListener('input', () => {
+    const pw = input.value;
+    const { tier, pct } = scorePassword(pw);
+    const c = TIERS[tier];
+
+    meterFill.style.width    = (pw ? Math.max(pct, 5) : 0) + '%';
+    meterFill.style.background = c.bar;
+    scoreLabel.textContent   = c.label;
+    scoreLabel.style.color   = c.text;
+    crackTime.textContent    = pw ? 'Crack time: ' + crackEstimate(pw) : '';
+
+    const e = pw ? Math.round(calcEntropy(pw)) : 0;
+    entropyFill.style.width = Math.min(100, Math.round(e / 1.2)) + '%';
+    entropyVal.textContent  = e + ' bits';
+
+    renderChecks(pw);
+    renderSuggestions(pw);
+
+    const isReuse = history.some(h => h.pw === pw);
+    reuseWarn.style.display = (pw && isReuse) ? 'block' : 'none';
+
+    clearTimeout(debounceTimer);
+    if (pw && pw !== lastCommitted) {
+      debounceTimer = setTimeout(() => {
+        history.push({ pw, tier });
+        if (history.length > 20) history.shift();
+        lastCommitted = pw;
+        renderHistory();
+      }, 1200);
+    }
+  });
+
+  toggleBtn.addEventListener('click', () => {
+    visible = !visible;
+    input.type = visible ? 'text' : 'password';
+    toggleBtn.textContent = visible ? 'Hide' : 'Show';
+  });
+
+  clearBtn.addEventListener('click', () => {
+    history = [];
+    lastCommitted = '';
+    reuseWarn.style.display = 'none';
+    renderHistory();
+  });
+
+  renderChecks('');
+  renderHistory();
+</script>
+</body>
+</html>
